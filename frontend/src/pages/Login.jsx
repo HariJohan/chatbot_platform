@@ -9,12 +9,18 @@ export default function Login() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!email || !password) {
+      alert("Please enter both email and password");
+      return;
+    }
+
     try {
       const res = await API.post("/auth/login", { email, password });
       localStorage.setItem("token", res.data.token);
       navigate("/dashboard");
     } catch (err) {
-      alert("Invalid credentials");
+      console.error("Login error:", err);
+      alert(err.response?.data?.error || "Invalid email or password");
     }
   };
 
@@ -49,9 +55,8 @@ export default function Login() {
         <p className="mt-4 text-center text-sm text-gray-600 dark:text-gray-300">
           Don’t have an account?{" "}
           <Link to="/register" className="text-blue-500 hover:underline">
-  Register
-</Link>
-
+            Register
+          </Link>
         </p>
       </div>
     </div>

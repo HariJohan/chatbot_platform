@@ -6,10 +6,35 @@ const router = express.Router();
 // ✅ Apply authentication middleware to all routes
 router.use(authMiddleware);
 
-// Create chat inside project (or standalone if no project)
-router.post("/:projectId?", (req, res) => {
+/**
+ * Create Direct Chat (no project)
+ * POST /chats
+ */
+router.post("/", (req, res) => {
   const { title } = req.body;
-  const projectId = req.params.projectId || null;
+  const userId = req.user.id;
+
+  if (!title || title.trim() === "") {
+    return res.status(400).json({ error: "Chat title is required" });
+  }
+
+  db.run(
+    `INSERT INTO chats (project_id, user_id, title) VALUES (?, ?, ?)`,
+    [null, userId, title],
+    function (err) {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ id: this.lastID, project_id: null, user_id: userId, title });
+    }
+  );
+});
+
+/**
+ * Create chat inside a project
+ * POST /chats/:projectId
+ */
+router.post("/:projectId", (req, res) => {
+  const { title } = req.body;
+  const projectId = req.params.projectId;
   const userId = req.user.id;
 
   if (!title || title.trim() === "") {
@@ -26,7 +51,10 @@ router.post("/:projectId?", (req, res) => {
   );
 });
 
-// List chats of a project (only for the logged-in user)
+/**
+ * List chats of a project (for the logged-in user)
+ * GET /chats/project/:projectId
+ */
 router.get("/project/:projectId", (req, res) => {
   const userId = req.user.id;
   const projectId = req.params.projectId;
@@ -41,7 +69,10 @@ router.get("/project/:projectId", (req, res) => {
   );
 });
 
-// List ALL chats for logged-in user (Direct Chat + Project Chats)
+/**
+ * List ALL chats for logged-in user (Direct + Project chats)
+ * GET /chats
+ */
 router.get("/", (req, res) => {
   const userId = req.user.id;
 
@@ -55,7 +86,10 @@ router.get("/", (req, res) => {
   );
 });
 
-// Delete chat (but prevent deleting Direct Chat)
+/**
+ * Delete chat (prevent deleting Direct Chat)
+ * DELETE /chats/:id
+ */
 router.delete("/:id", (req, res) => {
   const chatId = req.params.id;
   const userId = req.user.id;
@@ -84,4 +118,3 @@ router.delete("/:id", (req, res) => {
 });
 
 module.exports = router;
-

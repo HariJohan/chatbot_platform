@@ -7,7 +7,9 @@ function App() {
   return (
     <Router>
       <Routes>
+        {/* Default route → Login */}
         <Route path="/" element={<Login />} />
+        <Route path="/login" element={<Login />} />   {/* ✅ Added this */}
         <Route path="/register" element={<Register />} />
         <Route path="/dashboard" element={<Dashboard />} />
       </Routes>

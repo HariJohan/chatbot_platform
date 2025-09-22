@@ -7,38 +7,42 @@ export default function ChatWindow({ selectedChat, projects }) {
   const [typing, setTyping] = useState(false);
   const bottomRef = useRef(null);
 
-  // Fetch messages
+  // ✅ Fetch messages when chat changes
   useEffect(() => {
-    if (!selectedChat) return;
+    if (!selectedChat?.id) return;
 
     const fetchMessages = async () => {
       try {
-        let chatId = selectedChat.id === "direct" ? 1 : selectedChat.id;
-        const res = await API.get(`/messages/${chatId}`);
-        setMessages(res.data);
+        const res = await API.get(`/messages/${selectedChat.id}`);
+        setMessages(res.data || []);
       } catch (err) {
-        console.error(err);
+        console.error("❌ Failed to fetch messages:", err);
+        setMessages([
+          { id: "error", sender_id: null, text: "⚠️ Could not load messages" },
+        ]);
       }
     };
+
     fetchMessages();
   }, [selectedChat]);
 
-  // Auto-scroll
+  // ✅ Auto-scroll on new messages
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   const sendMessage = async () => {
-    if (!text.trim()) return;
+    if (!text.trim() || !selectedChat?.id) return;
 
-    let chatId = selectedChat.id === "direct" ? 1 : selectedChat.id;
+    const chatId = selectedChat.id;
 
+    // Optimistic UI (temporary message bubble)
     const tempMessage = {
       id: Date.now(),
       sender_id: "me",
       text,
     };
-    setMessages([...messages, tempMessage]);
+    setMessages((prev) => [...prev, tempMessage]);
     setText("");
 
     try {
@@ -46,12 +50,19 @@ export default function ChatWindow({ selectedChat, projects }) {
       const res = await API.post(`/messages/${chatId}`, { text });
       setTyping(false);
 
+      // Replace temp message with actual backend + AI responses
       setMessages((prev) => [
         ...prev.filter((m) => m.id !== tempMessage.id),
-        ...res.data,
+        ...(res.data || []),
       ]);
     } catch (err) {
-      console.error(err);
+      console.error("❌ Send message failed:", err);
+
+      // Replace temp bubble with error message
+      setMessages((prev) => [
+        ...prev.filter((m) => m.id !== tempMessage.id),
+        { id: Date.now(), sender_id: null, text: "⚠️ Failed to send message" },
+      ]);
       setTyping(false);
     }
   };
@@ -63,9 +74,9 @@ export default function ChatWindow({ selectedChat, projects }) {
     }
   };
 
-  // Find project name if chat belongs to a project
+  // ✅ Lookup project name if chat belongs to a project
   const projectName =
-    selectedChat.projectId && projects
+    selectedChat?.projectId && projects
       ? projects.find((p) => p.id === selectedChat.projectId)?.name
       : null;
 
@@ -91,7 +102,9 @@ export default function ChatWindow({ selectedChat, projects }) {
           <div
             key={m.id}
             className={`flex ${
-              m.sender_id && m.sender_id !== null ? "justify-end" : "justify-start"
+              m.sender_id && m.sender_id !== null
+                ? "justify-end"
+                : "justify-start"
             }`}
           >
             <div
