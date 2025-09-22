@@ -4,8 +4,20 @@ const router = express.Router();
 const authMiddleware = require("../middleware/auth");
 const axios = require("axios");
 
-// List messages
-router.get("/:chatId", authMiddleware, (req, res) => {
+// ✅ Middleware to check if chat belongs to the logged-in user
+function verifyChatOwnership(req, res, next) {
+  const userId = req.user.id;
+  const chatId = req.params.chatId;
+
+  db.get(`SELECT * FROM chats WHERE id = ? AND user_id = ?`, [chatId, userId], (err, chat) => {
+    if (err) return res.status(500).json({ error: "DB error" });
+    if (!chat) return res.status(403).json({ error: "Not authorized for this chat" });
+    next();
+  });
+}
+
+// ✅ List messages (user can only view their own chats)
+router.get("/:chatId", authMiddleware, verifyChatOwnership, (req, res) => {
   db.all(
     `SELECT * FROM messages WHERE chat_id = ? ORDER BY timestamp ASC`,
     [req.params.chatId],
@@ -16,11 +28,15 @@ router.get("/:chatId", authMiddleware, (req, res) => {
   );
 });
 
-// Send message + AI reply
-router.post("/:chatId", authMiddleware, async (req, res) => {
+// ✅ Send message + AI reply
+router.post("/:chatId", authMiddleware, verifyChatOwnership, async (req, res) => {
   const { text } = req.body;
   const chatId = req.params.chatId;
   const senderId = req.user.id;
+
+  if (!text || text.trim() === "") {
+    return res.status(400).json({ error: "Message text is required" });
+  }
 
   try {
     // Save user message
@@ -39,7 +55,7 @@ router.post("/:chatId", authMiddleware, async (req, res) => {
     const response = await axios.post(
       "https://openrouter.ai/api/v1/chat/completions",
       {
-        model: "openai/gpt-3.5-turbo", // change to another model if desired
+        model: "openai/gpt-3.5-turbo", // you can swap this for another model
         messages: [{ role: "user", content: text }],
       },
       {
@@ -50,7 +66,7 @@ router.post("/:chatId", authMiddleware, async (req, res) => {
       }
     );
 
-    const aiText = response.data.choices[0].message.content;
+    const aiText = response.data.choices?.[0]?.message?.content || "⚠️ No response from AI";
 
     // Save AI response
     const aiResult = await new Promise((resolve, reject) => {
@@ -66,7 +82,7 @@ router.post("/:chatId", authMiddleware, async (req, res) => {
 
     res.json([userResult, aiResult]);
   } catch (err) {
-    console.error(err);
+    console.error("AI API Error:", err.response?.data || err.message);
     res.status(500).json({ error: "Failed to send message" });
   }
 });

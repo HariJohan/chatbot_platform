@@ -7,6 +7,7 @@ const db = new sqlite3.Database("./database.sqlite", (err) => {
 
 // Create tables with cascade deletes
 db.serialize(() => {
+  // Users table
   db.run(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -16,6 +17,7 @@ db.serialize(() => {
     )
   `);
 
+  // Projects table
   db.run(`
     CREATE TABLE IF NOT EXISTS projects (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -25,20 +27,24 @@ db.serialize(() => {
     )
   `);
 
+  // Chats table (linked to a user)
   db.run(`
     CREATE TABLE IF NOT EXISTS chats (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       project_id INTEGER,
+      user_id INTEGER NOT NULL,
       title TEXT NOT NULL,
-      FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE
+      FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE,
+      FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
     )
   `);
 
+  // Messages table
   db.run(`
     CREATE TABLE IF NOT EXISTS messages (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       chat_id INTEGER NOT NULL,
-      sender_id INTEGER,  -- now optional (NULL allowed for AI/system messages)
+      sender_id INTEGER,  -- optional (NULL allowed for AI/system messages)
       text TEXT NOT NULL,
       timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY(chat_id) REFERENCES chats(id) ON DELETE CASCADE,

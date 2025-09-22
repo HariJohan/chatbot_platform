@@ -5,7 +5,7 @@ const db = require("../db");
 
 const router = express.Router();
 
-// REGISTER
+// ========================== REGISTER ==========================
 router.post("/register", (req, res) => {
   const { name, email, password } = req.body;
 
@@ -27,15 +27,28 @@ router.post("/register", (req, res) => {
         return res.status(500).json({ error: "Database error" });
       }
 
-      // Create default Direct Chat for new user
-      db.run(`INSERT INTO chats (project_id, title) VALUES (?, ?)`, [null, "Direct Chat"]);
+      const userId = this.lastID; // Get new user ID
 
-      res.status(201).json({ success: true, message: "User registered successfully" });
+      // Create default Direct Chat for this user
+      db.run(
+        `INSERT INTO chats (project_id, user_id, title) VALUES (?, ?, ?)`,
+        [null, userId, "Direct Chat"],
+        (chatErr) => {
+          if (chatErr) {
+            console.error("❌ Chat creation error:", chatErr.message);
+            return res.status(500).json({ error: "Error creating Direct Chat" });
+          }
+
+          res
+            .status(201)
+            .json({ success: true, message: "User registered successfully" });
+        }
+      );
     }
   );
 });
 
-// LOGIN
+// ========================== LOGIN ==========================
 router.post("/login", (req, res) => {
   const { email, password } = req.body;
 
